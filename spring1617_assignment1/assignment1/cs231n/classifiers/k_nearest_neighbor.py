@@ -67,6 +67,7 @@ class KNearestNeighbor(object):
     dists = np.zeros((num_test, num_train))
     for i in xrange(num_test):
       for j in xrange(num_train):
+        dists[i][j]=np.sum((X[i]-self.X_train[j])**2)
         #####################################################################
         # TODO:                                                             #
         # Compute the l2 distance between the ith test point and the jth    #
@@ -90,6 +91,7 @@ class KNearestNeighbor(object):
     num_train = self.X_train.shape[0]
     dists = np.zeros((num_test, num_train))
     for i in xrange(num_test):
+      dists[i]=np.sum((np.array(self.X_train)-X[i])**2,axis=1)
       #######################################################################
       # TODO:                                                               #
       # Compute the l2 distance between the ith test point and all training #
@@ -110,7 +112,10 @@ class KNearestNeighbor(object):
     """
     num_test = X.shape[0]
     num_train = self.X_train.shape[0]
-    dists = np.zeros((num_test, num_train)) 
+    dists = -2*np.mat(X)*np.mat(self.X_train).T
+    dists =np.add(dists.T,np.sum(X**2,axis=1).T).T
+    dists =np.add(dists,np.sum(self.X_train**2,axis=1))
+    ## sum(x1-x2)^2=x1^2-2x1x2+x2^2
     #########################################################################
     # TODO:                                                                 #
     # Compute the l2 distance between all test points and all training      #
@@ -148,6 +153,8 @@ class KNearestNeighbor(object):
       # A list of length k storing the labels of the k nearest neighbors to
       # the ith test point.
       closest_y = []
+      closest_y = self.y_train[np.argsort(dists[i])[:k]]
+      
       #########################################################################
       # TODO:                                                                 #
       # Use the distance matrix to find the k nearest neighbors of the ith    #
@@ -156,6 +163,12 @@ class KNearestNeighbor(object):
       # Hint: Look up the function numpy.argsort.                             #
       #########################################################################
       pass
+      y_pred[i]=np.argmax(np.bincount(closest_y))
+      ###count =0
+      ###for j in range(k):
+      ###  if count < closest_y.count(closest_y[j]):
+      ###      count=closest_y.count(closest_y[j])
+      ###      y_pred[i]=closest_y[j]
       #########################################################################
       # TODO:                                                                 #
       # Now that you have found the labels of the k nearest neighbors, you    #
