@@ -23,7 +23,24 @@ def softmax_loss_naive(W, X, y, reg):
   # Initialize the loss and gradient to zero.
   loss = 0.0
   dW = np.zeros_like(W)
-
+  train_num=X.shape[0]
+  train_cla=W.shape[1]
+  scores=np.dot(X,W)
+  scores-=np.max(scores,axis=1).reshape(train_num,1)
+  scores=np.exp(scores)
+  for i in range(train_num):
+      basic_sco=scores[i,:]
+      basic_sco=basic_sco.reshape(1,train_cla)
+      tot=np.sum(basic_sco)
+      basic_sco/=tot
+      ent=basic_sco[:,y[i]]/np.sum(basic_sco)
+      loss-=np.log(ent)
+      dW[:,y[i]]+=-X[i,:]
+      for j in range(train_cla):
+          dW[:,j]+=X[i,:]*basic_sco[:,j]/np.sum(basic_sco)
+        
+  loss=loss/train_num+0.5*reg*np.sum(W*W)
+  dW=dW/train_num+reg*W
   #############################################################################
   # TODO: Compute the softmax loss and its gradient using explicit loops.     #
   # Store the loss in loss and the gradient in dW. If you are not careful     #
@@ -47,7 +64,19 @@ def softmax_loss_vectorized(W, X, y, reg):
   # Initialize the loss and gradient to zero.
   loss = 0.0
   dW = np.zeros_like(W)
-
+  train_num=X.shape[0]
+  train_cla=W.shape[1]
+  scores=np.dot(X,W)
+  scores-=np.max(scores,axis=1).reshape(train_num,1)
+  scores=np.exp(scores)/np.sum(np.exp(scores),axis=1).reshape(train_num,1)
+  mask=np.zeros_like(scores)
+  mask[np.arange(train_num),y]=1.0
+  loss=-np.sum(mask*np.log(scores))
+  loss=loss/train_num+0.5*reg*np.sum(W*W)
+  #loss query finished
+  dW-=np.dot(X.T,mask-scores)/train_num
+  dW+=reg*W
+  #dW finished
   #############################################################################
   # TODO: Compute the softmax loss and its gradient using no explicit loops.  #
   # Store the loss in loss and the gradient in dW. If you are not careful     #
