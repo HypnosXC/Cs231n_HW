@@ -222,7 +222,7 @@ class FullyConnectedNet(object):
                 cache=(cache,re_cache)
                 caches[i]=cache
             if self.use_dropout:
-                out,dp_caches[i]=drop_forward(xout,self.dropout_param)
+                out,dp_caches[i]=dropout_forward(xout,self.dropout_param)
             else:
                 out=xout
         out,caches[self.num_layers]=affine_forward(out,                                                                                                                                                                                                                                                                                                                                                 
@@ -260,7 +260,7 @@ class FullyConnectedNet(object):
             j=self.num_layers-i-2
             loss+=0.5* self.reg * np.sum(self.params['W' + str(j+1)]*self.params['W' + str(j+1)])
             if self.use_dropout :
-                dout=dropout_backforward(dout,dp_caches[j])
+                dout=dropout_backward(dout,dp_caches[j])
             if self.use_batchnorm:
                 fc_cache,bn_cache,re_cache=caches[j]
                 dout=relu_backward(dout,re_cache)
