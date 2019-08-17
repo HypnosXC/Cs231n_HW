@@ -98,7 +98,7 @@ class CaptioningRNN(object):
         # token, and the first element of captions_out will be the first word.
         captions_in = captions[:, :-1]
         captions_out = captions[:, 1:]
-
+        
         # You'll need this
         mask = (captions_out != self._null)
 
@@ -116,6 +116,42 @@ class CaptioningRNN(object):
         W_vocab, b_vocab = self.params['W_vocab'], self.params['b_vocab']
 
         loss, grads = 0.0, {}
+        N,D=features.shape
+        
+        #(1)transformation
+        nfeat,cache_tran=temporal_affine_forward(features.reshape((N,1,D)),W_proj,b_proj)
+        h0=nfeat.reshape((N,-1))
+        
+        #(2) embedding the words
+        
+        x,embed_cache=word_embedding_forward(captions_in,W_embed)
+        
+        #(3) RNN training
+        
+        h_out,nn_cache=None,None
+        if self.cell_type=='rnn':
+            h_out,nn_cache=rnn_forward(x,h0,Wx,Wh,b)
+        else:
+            h_out,nn_cache=lstm_forward(x,h0,Wx,Wh,b)
+        
+        #(4) change h_out to get the vacabulary
+        scores,scor_cache=temporal_affine_forward(h_out,W_vocab,b_vocab)
+        
+        #(5) caculate the loss
+        loss,dscore=temporal_softmax_loss(scores,captions_out,mask)
+        
+        #backward
+        dh_out,grads['W_vocab'],grads['b_vocab']=temporal_affine_backward(dscore,scor_cache)
+        
+        dx,dh0=None,None
+        if self.cell_type=='rnn':
+            dx,dh0,grads['Wx'],grads['Wh'],grads['b']=rnn_backward(dh_out,nn_cache)
+        else:
+            dx,dh0,grads['Wx'],grads['Wh'],grads['b']=lstm_backward(dh_out,nn_cache)
+        
+        grads['W_embed']=word_embedding_backward(dx,embed_cache)
+        
+        _,grads['W_proj'],grads['b_proj']=temporal_affine_backward(dh0.reshape((N,1,-1)),cache_tran)
         ############################################################################
         # TODO: Implement the forward and backward passes for the CaptioningRNN.   #
         # In the forward pass you will need to do the following:                   #
@@ -169,7 +205,8 @@ class CaptioningRNN(object):
           where each element is an integer in the range [0, V). The first element
           of captions should be the first sampled word, not the <START> token.
         """
-        N = features.shape[0]
+        N,D= features.shape
+        T=max_length
         captions = self._null * np.ones((N, max_length), dtype=np.int32)
 
         # Unpack parameters
@@ -177,7 +214,27 @@ class CaptioningRNN(object):
         W_embed = self.params['W_embed']
         Wx, Wh, b = self.params['Wx'], self.params['Wh'], self.params['b']
         W_vocab, b_vocab = self.params['W_vocab'], self.params['b_vocab']
-
+        
+        # transform the features to h0
+        nfeat,cache_tran=temporal_affine_forward(features.reshape((N,1,D)),
+                                                 W_proj,
+                                                 b_proj)
+        h0=nfeat.reshape((N,-1))
+        captions[:,0]=self._start
+        prev_words=captions[:,0].reshape((N,-1))
+        for i in range(T-1):
+            x,embed_cache=word_embedding_forward(prev_words,W_embed)
+            x=x.reshape((N,-1))
+            h_out=None
+            if self.cell_type=='rnn':
+                h_out,_=rnn_step_forward(x,h0,Wx,Wh,b)
+            else:
+                h_out,_=lstm_step_forward(x,h0,Wx,Wh,b)
+            h0=h_out
+            scores,_=temporal_affine_forward(h_out.reshape((N,1,-1)),W_vocab,b_vocab)
+            scores=scores.reshape((N,-1))
+            captions[:,i+1]=np.argmax(scores,axis=1)
+            prev_words=captions[:,i+1].reshape((N,-1))
         ###########################################################################
         # TODO: Implement test-time sampling for the model. You will need to      #
         # initialize the hidden state of the RNN by applying the learned affine   #
@@ -199,8 +256,4 @@ class CaptioningRNN(object):
         # functions; you'll need to call rnn_step_forward or lstm_step_forward in #
         # a loop.                                                                 #
         ###########################################################################
-        pass
-        ############################################################################
-        #                             END OF YOUR CODE                             #
-        ############################################################################
         return captions
