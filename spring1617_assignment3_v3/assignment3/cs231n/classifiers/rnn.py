@@ -220,6 +220,7 @@ class CaptioningRNN(object):
                                                  W_proj,
                                                  b_proj)
         h0=nfeat.reshape((N,-1))
+        c0=np.zeros_like(h0)
         captions[:,0]=self._start
         prev_words=captions[:,0].reshape((N,-1))
         for i in range(T-1):
@@ -229,8 +230,9 @@ class CaptioningRNN(object):
             if self.cell_type=='rnn':
                 h_out,_=rnn_step_forward(x,h0,Wx,Wh,b)
             else:
-                h_out,_=lstm_step_forward(x,h0,Wx,Wh,b)
+                h_out,c_out,_=lstm_step_forward(x,h0,c0,Wx,Wh,b)
             h0=h_out
+            c0=c_out
             scores,_=temporal_affine_forward(h_out.reshape((N,1,-1)),W_vocab,b_vocab)
             scores=scores.reshape((N,-1))
             captions[:,i+1]=np.argmax(scores,axis=1)
